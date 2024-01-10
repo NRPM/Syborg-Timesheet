@@ -1,8 +1,7 @@
-import camelcaseKeys from "camelcase-keys";
 import sql from "mssql";
 import { extractPageQuery, getTotalCount } from "../helperFunctions.js";
 import { Pagination } from "../models/common.js";
-import { Client, Project } from "../models/index.js";
+import { Project } from "../models/index.js";
 import { projectSchema } from "../schema/index.js";
 
 export const ProjectList = async (req, res) => {
@@ -27,19 +26,6 @@ export const ProjectList = async (req, res) => {
       pageSize
     );
 
-    //format result
-    let newItems = [];
-    paginatedResult.items.forEach((project) => {
-      let { ProjectId, ProjectName, ProjectDescription, ClientName } = project;
-      let newProject = new Project(ProjectId, ProjectName, ProjectDescription);
-      newProject["clientName"] = ClientName;
-      newItems.push(newProject);
-    });
-
-    paginatedResult["items"] = newItems;
-
-    paginatedResult = camelcaseKeys(paginatedResult, { deep: true });
-
     res.status(200).send(paginatedResult);
   } catch (e) {
     res.status(400).send({ error: e.messgae });
@@ -60,10 +46,6 @@ export const getProjects = async (req, res) => {
       WHERE
         IsActive=1 
       `);
-
-    let projects = result.recordset;
-
-    projects = camelcaseKeys(projects, { deep: true });
 
     res.status(200).send(result.recordset);
   } catch (e) {
@@ -182,18 +164,14 @@ export const getProjectById = async (req, res) => {
     let result = await pool
       .request()
       .input("ProjectId", sql.Int, id)
-      .execute("GetProjectById");
-
-    let { ProjectId, ProjectName, ProjectDescription, ClientName, ClientId } =
-      result.recordset[0];
-
-    let project = new Project(ProjectId, ProjectName, ProjectDescription);
-
-    let client = new Client(ClientId, ClientName);
-
-    project["client"] = client;
-
-    res.send(project);
+      .query(
+        `SELECT * FROM PROJECTS 
+        WHERE 
+          IsActive=1 
+        AND 
+          ProjectId=@ProjectId`
+      );
+    res.send(result.recordset);
   } catch (e) {
     return res.status(400).send({ error: e.message });
   }
@@ -203,7 +181,7 @@ export const validateProject = async (req, res, next) => {
   try {
     let { projectName, projectDescription, clientId } = req.body;
 
-    let project = new Project(0, projectName, projectDescription, clientId);
+    let project = new Project(projectName, projectDescription, clientId);
 
     await projectSchema.validate(project, { abortEarly: false });
 

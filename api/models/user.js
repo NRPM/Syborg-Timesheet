@@ -1,15 +1,11 @@
 /**
  * Constructor function to create user
- * @param {Number} id
  * @param {string} userName
  * @param {string} userEmail
  * @param {string} password
  */
 
-function User(id, userName, userEmail, password) {
-  if (id) {
-    this.id = id;
-  }
+function User(userName, userEmail, password) {
   this.userName = userName;
   this.userEmail = userEmail;
   this.password = password;

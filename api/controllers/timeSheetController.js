@@ -1,14 +1,7 @@
 import sql from "mssql";
-import {
-  Client,
-  Project,
-  Task,
-  TaskByUserIdDTO,
-  User,
-} from "../models/index.js";
+import { Task, TaskByUserIdDTO } from "../models/index.js";
 import { taskSchema } from "../schema/index.js";
 import { tasksByDate } from "../helperFunctions.js";
-import camelCaseKeys from "camelcase-keys";
 
 export const getTimeSheetDetailsyUserId = async (req, res) => {
   try {
@@ -36,49 +29,17 @@ export const getTimeSheetDetailsyUserId = async (req, res) => {
   }
 };
 
-export const gettasksbydate = async (req, res) => {
+export const getTimeEntryById = async (req, res) => {
   try {
     let pool = req.db;
 
-    let { userId, taskDate } = req.query;
+    let { id } = req.params;
 
-    if (!userId || !taskDate)
-      return res.status(400).send({ message: "Missing parameters" });
+    let result = await pool.request().input("TaskId", sql.Int, id).query(`
+      SELECT * FROM TASKS WHERE IsActive=1 AND TaskId=@TaskId
+    `);
 
-    taskDate = taskDate.split("T")[0];
-
-    let result = await pool
-      .request()
-      .input("UserId", sql.Int, userId)
-      .input("TaskDate", sql.DateTime, taskDate)
-      .execute("GetTaskByDate");
-
-    //get result and convert the client, project, user in object and attche it to the response.
-    let tasks = result.recordset;
-
-    tasks.forEach((task) => {
-      //client
-      let client = new Client(task.ClientId, task.ClientName);
-      task["client"] = client;
-      delete task.ClientId;
-      delete task.ClientName;
-
-      //project
-      let project = new Project(task.ProjectId, task.ProjectName);
-      task["project"] = project;
-      delete task.ProjectId;
-      delete task.ProjectName;
-
-      //user
-      let user = new User(task.UserId, task.UserName);
-      task["user"] = user;
-      delete task.UserId;
-      delete task.UserName;
-    });
-
-    tasks = camelCaseKeys(tasks, { deep: true });
-
-    res.status(200).send(tasks);
+    res.status(200).send(result.recordset[0]);
   } catch (err) {
     console.error(err);
     res.send(500).send({ message: err.message });
@@ -119,50 +80,32 @@ export const addTimeEntry = async (req, res) => {
   try {
     let pool = req.db;
 
-    // let { id } = req.user;
-    let { taskDate, userId, tasks } = req.body;
+    let {
+      taskName,
+      clientId,
+      projectId,
+      estimateValue,
+      azureValue,
+      userStoryNumber,
+      taskNumber,
+      taskDate,
+    } = req.body;
 
-    let taskTable = new sql.Table();
+    let { id } = req.user;
 
-    taskTable.columns.add("TaskId", sql.Int);
-    taskTable.columns.add("TaskName", sql.VarChar, {
-      length: 100,
-      nullable: true,
-    });
-
-    taskTable.columns.add("ClientId", sql.Int);
-    taskTable.columns.add("ProjectId", sql.Int);
-    taskTable.columns.add("EstimateValue", sql.Int);
-    taskTable.columns.add("AzureValue", sql.Int);
-    taskTable.columns.add("UserStoryNumber", sql.Int);
-    taskTable.columns.add("TaskNumber", sql.Int);
-    taskTable.columns.add("UserId", sql.Int);
-    taskTable.columns.add("IsActive", sql.Bit);
-    taskTable.columns.add("CreatedDate", sql.DateTime);
-    taskTable.columns.add("CreatedBy", sql.Int);
-    taskTable.columns.add("ModifiedBy", sql.Int);
-    taskTable.columns.add("ModifiedDate", sql.DateTime);
-
-    for (let i = 0; i < tasks.length; i++) {
-      taskTable.rows.add(
-        tasks[i].taskId,
-        tasks[i].taskName,
-        tasks[i].clientId,
-        tasks[i].projectId,
-        tasks[i].estimateValue,
-        tasks[i].azureValue,
-        tasks[i].userStoryNumber,
-        tasks[i].taskNumber,
-        userId,
-        1,
-        taskDate,
-        userId,
-        userId,
-        new Date().toISOString()
-      );
-    }
-
-    await pool.request().input("tvp", taskTable).execute("AddTimeEntry");
+    await pool
+      .request()
+      .input("TaskName", sql.VarChar, taskName)
+      .input("ClientId", sql.Int, clientId)
+      .input("ProjectId", sql.Int, projectId)
+      .input("EstimateValue", sql.Decimal(10, 2), estimateValue)
+      .input("AzureValue", sql.Decimal(10, 2), azureValue)
+      .input("UserStoryNumber", sql.Int, userStoryNumber)
+      .input("TaskNumber", sql.Int, taskNumber)
+      .input("UserId", sql.Int, id)
+      .input("IsActive", sql.Bit, 1)
+      .input("TaskDate", sql.Date, taskDate)
+      .execute("AddTimeEntry");
 
     res.status(201).send({ messgae: "Task added successfully." });
   } catch (err) {
@@ -171,63 +114,62 @@ export const addTimeEntry = async (req, res) => {
   }
 };
 
-//update endpoint not needed
-// export const updateTimeEntry = async (req, res) => {
-//   try {
-//     let pool = req.db;
+export const updateTimeEntry = async (req, res) => {
+  try {
+    let pool = req.db;
 
-//     let { id } = req.params;
-//     let {
-//       taskName,
-//       clientId,
-//       projectId,
-//       estimateValue,
-//       azureValue,
-//       userStoryNumber,
-//       taskNumber,
-//     } = req.body;
+    let { id } = req.params;
+    let {
+      taskName,
+      clientId,
+      projectId,
+      estimateValue,
+      azureValue,
+      userStoryNumber,
+      taskNumber,
+    } = req.body;
 
-//     let userId = req.user.id;
+    let userId = req.user.id;
 
-//     if (id == 0) {
-//       throw new Error("Invalid task id");
-//     }
+    if (id == 0) {
+      throw new Error("Invalid task id");
+    }
 
-//     await pool
-//       .request()
-//       .input("TaskId", sql.Int, id)
-//       .input("TaskName", sql.VarChar, taskName)
-//       .input("ClientId", sql.Int, clientId)
-//       .input("ProjectId", sql.Int, projectId)
-//       .input("EstimateValue", sql.Decimal(10, 2), estimateValue)
-//       .input("AzureValue", sql.Decimal(10, 2), azureValue)
-//       .input("UserStoryNumber", sql.Int, userStoryNumber)
-//       .input("TaskNumber", sql.Int, taskNumber)
-//       .input("UserId", sql.Int, userId)
-//       .input("IsActive", sql.Bit, 1)
-//       .query(
-//         `UPDATE TASKS
-//         SET
-//           TaskName=@TaskName,
-//           ClientId=@ClientId,
-//           ProjectId=@ProjectId,
-//           EstimateValue=@EstimateValue,
-//           AzureValue=@AzureValue,
-//           UserStoryNumber=@UserStoryNumber,
-//           TaskNumber=@TaskNumber,
-//           UserId=@UserId,
-//           ModifiedBy=@UserId,
-//           ModifiedDate=GETDATE()
-//         WHERE
-//           TaskId=@TaskId`
-//       );
+    await pool
+      .request()
+      .input("TaskId", sql.Int, id)
+      .input("TaskName", sql.VarChar, taskName)
+      .input("ClientId", sql.Int, clientId)
+      .input("ProjectId", sql.Int, projectId)
+      .input("EstimateValue", sql.Decimal(10, 2), estimateValue)
+      .input("AzureValue", sql.Decimal(10, 2), azureValue)
+      .input("UserStoryNumber", sql.Int, userStoryNumber)
+      .input("TaskNumber", sql.Int, taskNumber)
+      .input("UserId", sql.Int, userId)
+      .input("IsActive", sql.Bit, 1)
+      .query(
+        `UPDATE TASKS 
+        SET 
+          TaskName=@TaskName, 
+          ClientId=@ClientId,
+          ProjectId=@ProjectId,
+          EstimateValue=@EstimateValue,
+          AzureValue=@AzureValue,
+          UserStoryNumber=@UserStoryNumber,
+          TaskNumber=@TaskNumber,
+          UserId=@UserId,
+          ModifiedBy=@UserId,
+          ModifiedDate=GETDATE()
+        WHERE 
+          TaskId=@TaskId`
+      );
 
-//     res.status(201).send({ message: "Task updated successfully" });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).send({ message: error.message });
-//   }
-// };
+    res.status(201).send({ message: "Task updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: error.message });
+  }
+};
 
 export const validateTimeEntry = async (req, res, next) => {
   try {
@@ -245,7 +187,7 @@ export const validateTimeEntry = async (req, res, next) => {
     let { id } = req.user;
 
     let task = new Task(
-      0,
+      undefined,
       taskName,
       clientId,
       undefined,

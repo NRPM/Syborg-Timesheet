@@ -2,8 +2,10 @@ import express from "express";
 import {
   addTimeEntry,
   deleteTimeEntry,
+  getTimeEntryById,
   getTimeSheetDetailsyUserId,
-  gettasksbydate,
+  updateTimeEntry,
+  validateTimeEntry,
 } from "../controllers/timeSheetController.js";
 import { auth } from "../controllers/userController.js";
 
@@ -14,23 +16,17 @@ timeSheetRouter.post(
   getTimeSheetDetailsyUserId
 );
 
-timeSheetRouter.get("/gettasksbydate", auth, gettasksbydate);
+timeSheetRouter.get("/gettimeentrybyid/:id", auth, getTimeEntryById);
 
-timeSheetRouter.post("/deletetask/:id", auth, deleteTimeEntry);
+timeSheetRouter.post("/deletetimeentry/:id", auth, deleteTimeEntry);
 
-timeSheetRouter.post(
-  "/addtimeentry",
+timeSheetRouter.post("/addtimeentry", auth, validateTimeEntry, addTimeEntry);
+
+timeSheetRouter.put(
+  "/updatetimeentry/:id",
   auth,
-  //  validateTimeEntry,
-  addTimeEntry
+  validateTimeEntry,
+  updateTimeEntry
 );
-
-// updated endpoint not needed
-// timeSheetRouter.put(
-//   "/updatetimeentry/:id",
-//   auth,
-//   validateTimeEntry,
-//   updateTimeEntry
-// );
 
 export default timeSheetRouter;

@@ -28,9 +28,7 @@ function Task(
   userId,
   taskDate
 ) {
-  if (taskId) {
-    this.taskId = taskId;
-  }
+  this.taskId = taskId;
   this.taskName = taskName;
   this.clientId = clientId;
   this.clientName = clientName;
